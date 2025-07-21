@@ -1,0 +1,25 @@
+{
+  "name": "vlr-scraper",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mkornela/vlr-scraper.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/mkornela/vlr-scraper/issues"
+  },
+  "homepage": "https://github.com/mkornela/vlr-scraper#readme",
+  "dependencies": {
+    "express": "^5.1.0",
+    "puppeteer": "^24.14.0"
+  }
+}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLR.gg Scraper - Mecze Valorant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>NADCHODZĄCE MECZE</h1>
+        <p>Analiza danych z vlr.gg</p>
+    </header>
+
+    <main>
+        <div class="filters-container">
+            <select id="event-filter" title="Filtruj po wydarzeniu"></select>
+            <input type="date" id="date-from-filter" title="Data od">
+            <input type="date" id="date-to-filter" title="Data do">
+            <button id="reset-filters">Wyczyść</button>
+        </div>
+
+        <div id="loader" class="loader"></div>
+        <div id="matches-container"></div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
