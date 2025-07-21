@@ -231,7 +231,7 @@ app.get('/api/dailymatches', async (req, res) => {
 });
 
 async function startServer() {
-    browserInstance = await puppeteer.launch({ headless: true });
+    browserInstance = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
     app.listen(PORT, () => {
         console.log(`Serwer uruchomiony na http://localhost:${PORT}`);
     });
