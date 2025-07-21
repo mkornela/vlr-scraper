@@ -9,6 +9,11 @@ async function getMatchList(browser) {
             console.log(`[Scraper] Pobieram listę z: ${url}`);
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
             await page.waitForSelector('.wf-module-item.match-item', { timeout: 15000 });
+            await page.setRequestInterception(true)
+            page.on('request', (request) => {
+              if (request.resourceType() === 'image') request.abort()
+              else request.continue()
+            })
             
             const matchesOnPage = await page.evaluate(() => {
                 const results = [];
