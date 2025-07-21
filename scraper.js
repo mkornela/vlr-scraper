@@ -7,7 +7,7 @@ async function getMatchList(browser) {
         for (let pageNum = 1; pageNum <= 5; pageNum++) {
             const url = `https://www.vlr.gg/matches/?page=${pageNum}`;
             console.log(`[Scraper] Pobieram listę z: ${url}`);
-            await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
             await page.waitForSelector('.wf-module-item.match-item', { timeout: 15000 });
             
             const matchesOnPage = await page.evaluate(() => {
