@@ -1,0 +1,149 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+
+:root {
+    --valorant-dark: #0f1923;
+    --valorant-red: #ff4655;
+    --valorant-light: #ece8e1;
+    --card-bg: #1a2836;
+}
+
+body {
+    background-color: var(--valorant-dark);
+    color: var(--valorant-light);
+    font-family: 'Montserrat', sans-serif;
+    margin: 0;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--valorant-red);
+    padding-bottom: 20px;
+}
+
+header h1 {
+    color: var(--valorant-red);
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.loader {
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid var(--valorant-red);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 50px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.filters-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+#filter-input {
+    width: 50%;
+    padding: 12px 20px;
+    background-color: var(--card-bg);
+    border: 2px solid #333;
+    border-radius: 5px;
+    color: var(--valorant-light);
+    font-size: 1em;
+    transition: border-color 0.3s ease;
+}
+
+#filter-input:focus {
+    outline: none;
+    border-color: var(--valorant-red);
+}
+
+#match-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.match-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--card-bg);
+    padding: 15px 25px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--valorant-light);
+    border-left: 4px solid transparent;
+    transition: transform 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.match-card:hover {
+    transform: translateX(5px);
+    border-left-color: var(--valorant-red);
+    background-color: #2a3c50;
+}
+
+.match-info {
+    flex-grow: 1;
+}
+
+.match-card .teams { font-weight: 700; font-size: 1.1em; margin-bottom: 5px; }
+.match-card .event { font-size: 0.9em; color: #aaa; }
+.match-card .time { color: var(--valorant-red); font-weight: bold; min-width: 80px; text-align: right; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.back-link {
+    color: var(--valorant-red); text-decoration: none; display: block; margin-bottom: 15px;
+}
+.team-header {
+    display: flex; justify-content: space-around; align-items: center; background-color: var(--card-bg);
+    padding: 20px; border-radius: 8px; margin-bottom: 30px;
+}
+.team-info { display: flex; align-items: center; flex-direction: column; }
+.team-info img { width: 80px; height: 80px; }
+.team-info .team-name { font-size: 1.5em; font-weight: bold; margin-top: 10px; }
+.score { font-size: 3em; font-weight: bold; color: var(--valorant-red); }
+.players-section h3 {
+    text-align: center; font-size: 1.5em; color: var(--valorant-red); margin: 30px 0 15px;
+}
+.player-table { width: 100%; border-collapse: collapse; }
+.player-table th, .player-table td { padding: 10px; text-align: left; border-bottom: 1px solid #333; }
+.player-table th { background-color: #000; }
+.player-table td a { color: var(--valorant-light); text-decoration: none; }
+.player-table td a:hover { text-decoration: underline; }
+.player-table td img { width: 16px; vertical-align: middle; margin-right: 5px; }
+.player-row:hover { background-color: #2a3c50; }
+
+.site-footer {
+    text-align: center;
+    margin-top: 50px;
+    padding-top: 20px;
+    border-top: 1px solid #333;
+    font-size: 0.9em;
+    color: #888;
+}
+
+.site-footer a {
+    color: #aaa;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.site-footer a:hover {
+    color: var(--valorant-red);
+    text-decoration: underline;
+}

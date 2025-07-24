@@ -1,242 +1,143 @@
 const express = require('express');
 const path = require('path');
-const puppeteer = require('puppeteer');
-const scraper = require('./scraper');
+const moment = require('moment-timezone');
+const vlr = require('./vlr-scraper');
 
 const app = express();
-const PORT = 7915;
+const PORT = process.env.PORT || 7915;
 
-const cache = {
-    matchList: [],
-    matchDetails: {},
-};
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+app.use(express.static(path.join(__dirname, 'public')));
 
-let browserInstance;
-
-async function refreshMatchListCache() {
-    console.log('[Cache] Rozpoczynam odświeżanie listy meczów...');
+function convertToPolishDateTime(dateString, timeString) {
+    if (!dateString || !timeString) {
+        return null;
+    }
     try {
-        const matches = await scraper.getMatchList(browserInstance);
-        cache.matchList = matches;
-        console.log(`[Cache] Pomyślnie zaktualizowano. Znaleziono ${matches.length} meczów.`);
-    } catch (error) {
-        console.error("[Cache] Błąd podczas odświeżania listy meczów:", error);
+        const combinedString = `${dateString} ${timeString}`;
+        const format = "dddd, MMMM Do h:mm a z";
+        
+        const dt = moment.tz(combinedString, format, 'en', 'Europe/Helsinki');
+        
+        if (!dt.isValid()) {
+            return null;
+        }
+
+        const polishDt = dt.clone().tz('Europe/Warsaw');
+        return {
+            date: polishDt.format('DD/MM/YYYY'),
+            time: polishDt.format('HH:mm')
+        };
+    } catch (e) {
+        return null;
     }
 }
 
-app.use(express.static('public'));
-
-const getTimeUntil = (utcDateString) => {
-    if (!utcDateString) return "wkrótce";
-    const matchDate = new Date(utcDateString);
-    const now = new Date();
-    const diffMs = matchDate - now;
-    if (diffMs < 0) return "TERAZ";
-    const days = Math.floor(diffMs / 86400000);
-    const hours = Math.floor((diffMs % 86400000) / 3600000);
-    const minutes = Math.floor((diffMs % 3600000) / 60000);
-    if (days > 0) return `${days}d ${hours}h`;
-    return `${hours}h ${minutes}m`;
-};
-const formatDateTimeShort = (utcDateString) => {
-    if (!utcDateString) return "brak daty";
-    return new Date(utcDateString).toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-};
-const formatTimeShort = (utcDateString) => {
-    if (!utcDateString) return "brak godziny";
-    return new Date(utcDateString).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-};
-
-app.get('/api/matches', (req, res) => {
-    if (cache.matchList.length === 0) {
-        return res.status(503).json({ error: "Dane są w trakcie przygotowywania. Spróbuj ponownie za chwilę." });
+app.get('/api/upcoming', async (req, res) => {
+    try {
+        const matches = await vlr.getUpcomingMatches();
+        res.json(matches);
+    } catch (error) {
+        res.status(500).json({ error: 'Nie udało się pobrać danych o nadchodzących meczach.' });
     }
-    res.json(cache.matchList);
 });
 
-app.get('/api/match', async (req, res) => {
-    const matchUrl = req.query.url;
-    if (!matchUrl) return res.status(400).json({ error: "Brak parametru 'url'." });
-    if (cache.matchDetails[matchUrl]) return res.json(cache.matchDetails[matchUrl]);
-
+app.get('/api/match/:id/:slug', async (req, res) => {
+    const { id, slug } = req.params;
+    const matchUrl = `https://www.vlr.gg/${id}/${slug}`;
+    
     try {
-        const details = await scraper.getMatchDetails(browserInstance, matchUrl);
-        cache.matchDetails[matchUrl] = details;
+        const details = await vlr.getMatchDetails(matchUrl);
+        if (!details) {
+            return res.status(404).json({ error: 'Nie znaleziono meczu.' });
+        }
         res.json(details);
     } catch (error) {
-        res.status(500).json({ error: "Nie udało się pobrać szczegółów meczu." });
+        res.status(500).json({ error: `Nie udało się pobrać danych dla meczu: ${slug}` });
     }
 });
 
-app.get('/api/all-data', (req, res) => {
-    console.log('[API] Serwowanie wszystkich zcache\'owanych danych jako JSON.');
-    
-    const combinedData = cache.matchList.map(match => {
-        const details = cache.matchDetails[match.matchUrl];
-        if (details) {
-            return { ...match, details };
-        }
-        return match;
-    });
+app.get('/api/display', async (req, res) => {
+    try {
+        const { event, count, displayPlayersFrom } = req.query;
 
-    res.json(combinedData);
+        if (!event) {
+            return res.status(400).send('Błąd: Parametr "event" jest wymagany.');
+        }
+
+        let matchCount = parseInt(count, 10) || 2;
+        if (matchCount > 5) matchCount = 5;
+
+        const allMatches = await vlr.getUpcomingMatches();
+        const filteredMatches = allMatches
+            .filter(match => match.event.toLowerCase().includes(event.toLowerCase()))
+            .slice(0, matchCount);
+
+        if (filteredMatches.length === 0) {
+            return res.status(404).send(`Nie znaleziono nadchodzących meczów dla wydarzenia: ${event}`);
+        }
+
+        const detailPromises = filteredMatches.map(match => vlr.getMatchDetails(match.url));
+        const detailedMatches = await Promise.all(detailPromises);
+        
+        let lastDate = null;
+        const chatResponseParts = detailedMatches.map((details, index) => {
+            const matchInfo = filteredMatches[index];
+            let output = '';
+
+            const getTeamDisplay = (team) => {
+                let display = team.abbreviation;
+                if (displayPlayersFrom) {
+                    const players = team.players
+                        .filter(p => p.country.toLowerCase() === displayPlayersFrom.toLowerCase())
+                        .map(p => p.name);
+                    if (players.length > 0) {
+                        display += ` (${players.join(', ')})`;
+                    }
+                }
+                return display;
+            };
+            
+            const team1Display = getTeamDisplay(details.team1);
+            const team2Display = getTeamDisplay(details.team2);
+
+            if (matchInfo.time.toUpperCase() === 'LIVE') {
+                output = `[LIVE] ${team1Display} ${details.score} ${team2Display}`;
+            } else {
+                const dateTime = convertToPolishDateTime(details.date, details.hour);
+                const teams = `${team1Display} vs ${team2Display}`;
+
+                if (dateTime) {
+                    if (dateTime.date !== lastDate) {
+                        output = `${dateTime.date} | ${dateTime.time} ${teams}`;
+                        lastDate = dateTime.date;
+                    } else {
+                        output = `${dateTime.time} ${teams}`;
+                    }
+                } else {
+                    output = `${details.hour.replace('CEST', '').trim()} ${teams}`;
+                }
+            }
+            return output;
+        });
+
+        const chatResponse = chatResponseParts.join(' || ');
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.send(chatResponse);
+
+    } catch (error) {
+        console.error('Błąd w /api/display:', error);
+        res.status(500).send('Wystąpił wewnętrzny błąd serwera.');
+    }
 });
 
-app.get('/match', (req, res) => {
+app.get('/match/:id/:slug', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'match.html'));
 });
 
-app.get('/api/matchToChat', async (req, res) => {
-    const { event: eventQuery, country: countryQuery } = req.query;
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-
-    if (!eventQuery) {
-        return res.status(400).send('BŁĄD: Podaj nazwę wydarzenia, np. ?event=VCT 2025: EMEA Stage 2');
-    }
-
-    const countryCodeToUnicodeFlag = (code) => {
-        if (!code || code.length !== 2) return '🏳️';
-        return code.toUpperCase().split('').map(char => String.fromCodePoint(char.charCodeAt(0) + 127397)).join('');
-    };
-    
-    const allEventMatches = cache.matchList.filter(m => m.eventName.toLowerCase().includes(eventQuery.toLowerCase()));
-    if (allEventMatches.length === 0) {
-        return res.status(404).send(`BŁĄD: Nie znaleziono meczów pasujących do zapytania: "${eventQuery}"`);
-    }
-
-    const nextMatch = allEventMatches[0];
-    if (!nextMatch) {
-         return res.status(404).send(`BŁĄD: Wszystkie mecze dla "${eventQuery}" już się odbyły.`);
-    }
-
-    try {
-        let details = cache.matchDetails[nextMatch.matchUrl];
-        if (!details) {
-            details = await scraper.getMatchDetails(browserInstance, nextMatch.matchUrl);
-            cache.matchDetails[nextMatch.matchUrl] = details;
-        }
-
-        const { team1, team2, score, maps } = details;
-        
-        const formatRoster = (players, countryFilter) => {
-            if (!players || players.length === 0) return 'Skład niepotwierdzony';
-
-            let playersToFormat = players;
-
-            if (countryFilter) {
-                playersToFormat = players.filter(p => p.flag.toLowerCase() === countryFilter.toLowerCase());
-                if (playersToFormat.length === 0) {
-                    return `Brak polaków`;
-                }
-            }
-            
-            return playersToFormat.map(p => {
-                const flagEmoji = countryCodeToUnicodeFlag(p.flag);
-                return `${flagEmoji} ${p.name}`;
-            }).join(' ');
-        };
-
-        const team1Roster = formatRoster(maps[0]?.stats?.team1, countryQuery);
-        const team2Roster = formatRoster(maps[0]?.stats?.team2, countryQuery);
-
-        const chatString = `${TEAMS[team1.name]} vs ${TEAMS[team2.name]} za ${score.status} | ${TEAMS[team1.name]} -> ${team1Roster} | ${TEAMS[team2.name]} -> ${team2Roster}`.trim();
-
-        res.send(chatString);
-
-    } catch (error) {
-        console.error(`Błąd w /api/matchToChat dla eventu ${eventQuery}:`, error);
-        res.status(500).send("BŁĄD: Nie udało się pobrać szczegółów meczu.");
-    }
+app.get('/upcoming', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/api/nextmatch', async (req, res) => {
-    const { event: eventQuery } = req.query;
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-
-    if (!eventQuery) {
-        return res.status(400).send('BŁĄD: Podaj nazwę wydarzenia, np. ?event=VCT EMEA');
-    }
-
-    const nextMatch = cache.matchList.find(m => m.eventName.toLowerCase().includes(eventQuery.toLowerCase()));
-
-    if (!nextMatch) {
-        return res.status(404).send(`Nie znaleziono nadchodzących meczy dla wydarzenia: "${eventQuery}". Sprawdź, czy nazwa jest poprawna.`);
-    }
-
-    try {
-        let details = cache.matchDetails[nextMatch.matchUrl];
-        if (!details) {
-            details = await scraper.getMatchDetails(browserInstance, nextMatch.matchUrl);
-            cache.matchDetails[nextMatch.matchUrl] = details;
-        }
-
-        const date = formatDateTimeShort(details.matchDate);
-        const timeUntil = getTimeUntil(details.matchDate);
-        const result = `Następny mecz na "${nextMatch.eventName}" to: ${details.team1.name} vs ${details.team2.name} za ${timeUntil} (${date})`;
-        
-        res.send(result);
-    } catch (error) {
-        res.status(500).send("Błąd podczas pobierania szczegółów meczu.");
-    }
+app.listen(PORT, () => {
+    console.log(`Serwer VLR.gg Scraper App nasłuchuje na http://localhost:${PORT}`);
 });
-
-app.get('/api/dailymatches', async (req, res) => {
-    const { event: eventQuery } = req.query;
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-
-    if (!eventQuery) {
-        return res.status(400).send('BŁĄD: Podaj nazwę wydarzenia, np. ?event=VCT EMEA');
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const dailyMatches = cache.matchList.filter(match => {
-        if (!match.eventName || !match.date) return false;
-        if (!match.eventName.toLowerCase().includes(eventQuery.toLowerCase())) return false;
-        
-        const matchDate = new Date(match.date);
-        matchDate.setHours(0, 0, 0, 0);
-        return matchDate.getTime() === today.getTime();
-    });
-
-    if (dailyMatches.length === 0) {
-        return res.send(`Nie znaleziono na dzisiaj żadnych meczy dla wydarzenia: "${eventQuery}".`);
-    }
-
-    try {
-        const detailedMatches = await Promise.all(dailyMatches.map(async match => {
-            let details = cache.matchDetails[match.matchUrl];
-            if (!details) {
-                details = await scraper.getMatchDetails(browserInstance, match.matchUrl);
-                cache.matchDetails[match.matchUrl] = details;
-            }
-            return { ...match, details };
-        }));
-
-        detailedMatches.sort((a, b) => new Date(a.details.matchDate) - new Date(b.details.matchDate));
-
-        const matchesStrings = detailedMatches.map(match => {
-            const time = formatTimeShort(match.details.matchDate);
-            return `${time} ${match.team1} vs ${match.team2}`;
-        });
-
-        const result = `Dzisiejsze mecze dla "${eventQuery}": ${matchesStrings.join(' | ')}`;
-        res.send(result);
-
-    } catch (error) {
-        res.status(500).send("Błąd podczas pobierania szczegółów meczów na dziś.");
-    }
-});
-
-async function startServer() {
-    browserInstance = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
-    app.listen(PORT, () => {
-        console.log(`Serwer uruchomiony na http://localhost:${PORT}`);
-    });
-    await refreshMatchListCache();
-    setInterval(refreshMatchListCache, REFRESH_INTERVAL_MS);
-}
-
-startServer();

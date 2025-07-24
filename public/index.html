@@ -3,30 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VLR.gg Scraper - Mecze Valorant</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <title>VLR.gg - Nadchodzące Mecze</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
     <header>
-        <h1>NADCHODZĄCE MECZE</h1>
-        <p>Analiza danych z vlr.gg</p>
+        <h1>VLR.gg Scraper</h1>
+        <h2>Nadchodzące Mecze</h2>
     </header>
 
-    <main>
-        <div class="filters-container">
-            <select id="event-filter" title="Filtruj po wydarzeniu"></select>
-            <input type="date" id="date-from-filter" title="Data od">
-            <input type="date" id="date-to-filter" title="Data do">
-            <button id="reset-filters">Wyczyść</button>
-        </div>
+    <div class="filters-container">
+        <input type="text" id="filter-input" placeholder="Filtruj po drużynie lub turnieju...">
+    </div>
 
-        <div id="loader" class="loader"></div>
-        <div id="matches-container"></div>
+    <main id="match-list-container">
+        <div class="loader"></div>
     </main>
 
-    <script src="app.js"></script>
+    <footer class="site-footer">
+        <div>Dane dostarczone przez <a href="https://www.vlr.gg/" target="_blank" rel="noopener noreferrer">VLR.gg</a></div>
+        <div>Stworzone przez <a href="https://github.com/mkornela" target="_blank" rel="noopener noreferrer">deem</a></div>
+    </footer>
+
+    <script src="/js/main.js"></script>
 </body>
 </html>
