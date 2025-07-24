@@ -106,7 +106,7 @@ app.get('/api/display', async (req, res) => {
                     if (players.length > 0) {
                         const emoji = getFlagEmoji(displayPlayersFrom);
                         const emojiPart = emoji ? `${emoji} ` : '';
-                        display += ` (${emojiPart}${players.join(', ')})`;
+                        display += ` ( ${emojiPart}${players.join(', ')})`;
                     }
                 }
                 return display;
