@@ -1,12 +1,24 @@
 const express = require('express');
 const path = require('path');
 const moment = require('moment-timezone');
+const { getCode } = require('country-list');
 const vlr = require('./vlr-scraper');
 
 const app = express();
 const PORT = process.env.PORT || 7915;
 
 app.use(express.static(path.join(__dirname, 'public')));
+
+function getFlagEmoji(countryName) {
+    const countryCode = getCode(countryName);
+    if (!countryCode) return '';
+    
+    const codePoints = countryCode
+        .toUpperCase()
+        .split('')
+        .map(char => 127397 + char.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+}
 
 function convertToPolishDateTime(dateString, timeString) {
     if (!dateString || !timeString) {
@@ -90,8 +102,11 @@ app.get('/api/display', async (req, res) => {
                     const players = team.players
                         .filter(p => p.country.toLowerCase() === displayPlayersFrom.toLowerCase())
                         .map(p => p.name);
+                    
                     if (players.length > 0) {
-                        display += ` (${players.join(', ')})`;
+                        const emoji = getFlagEmoji(displayPlayersFrom);
+                        const emojiPart = emoji ? `${emoji} ` : '';
+                        display += ` (${emojiPart}${players.join(', ')})`;
                     }
                 }
                 return display;
