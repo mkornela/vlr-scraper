@@ -69,6 +69,9 @@ app.get('/api/display', async (req, res) => {
         
         let lastDate = null;
         const chatResponseParts = detailedMatches.map((details) => {
+            if (!details) {
+                return "Błąd pobierania danych meczu"; // Zabezpieczenie przed null
+            }
             let output = '';
 
             const getTeamDisplay = (team) => {
@@ -94,7 +97,7 @@ app.get('/api/display', async (req, res) => {
             
             if (details.isLive) {
                 const teams = `${team1Display} ${details.score} ${team2Display}`;
-                if (dateTime.date !== lastDate) {
+                if (dateTime && dateTime.date !== lastDate) {
                     output = `${dateTime.date} | [LIVE] ${teams}`;
                     lastDate = dateTime.date;
                 } else {
@@ -126,6 +129,7 @@ app.get('/api/display', async (req, res) => {
     }
 });
 
+// Reszta endpointów bez zmian
 app.get('/api/upcoming', async (req, res) => {
     try {
         const matches = await vlr.getUpcomingMatches();

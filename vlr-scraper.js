@@ -44,7 +44,7 @@ async function getMatchDetails(url) {
     const header = $('.match-header');
     
     matchData.isLive = header.find('.match-header-vs-note.mod-live').text().trim().toUpperCase() === 'LIVE';
-
+    
     const eventLink = header.find('a.match-header-event');
     const dateContainer = header.find('.match-header-date');
 
@@ -60,8 +60,8 @@ async function getMatchDetails(url) {
     const scoreElement = header.find('.match-header-vs-score .js-spoiler').first();
     const scoreText = scoreElement.find('span:not(.match-header-vs-score-colon)').map((i, el) => $(el).text().trim()).get();
     
-    if (scoreText.length === 2 && scoreText.every(s => /^\d+$/.test(s))) {
-        matchData.score = `${scoreText[0]} - ${scoreText[1]}`;
+    if (scoreText.length >= 2 && /^\d+$/.test(scoreText[0]) && /^\d+$/.test(scoreText[scoreText.length-1])) {
+        matchData.score = `${scoreText[0]} - ${scoreText[scoreText.length-1]}`;
     } else {
         matchData.score = 'vs';
     }
@@ -70,7 +70,7 @@ async function getMatchDetails(url) {
     const team2Name = header.find('.wf-title-med').last().text().trim();
     matchData.team1 = { name: team1Name, logo: 'https:' + (header.find('a.match-header-link').first().find('img').attr('src') || '') };
     matchData.team2 = { name: team2Name, logo: 'https:' + (header.find('a.match-header-link').last().find('img').attr('src') || '') };
-    
+
     const statsContainer = $('.vm-stats-game[data-game-id="all"]');
     [matchData.team1, matchData.team2].forEach((team, index) => {
         team.players = [];
@@ -86,11 +86,26 @@ async function getMatchDetails(url) {
 
             const flagElement = playerInfoCell.find('i.flag');
             const countryName = flagElement.attr('title') || 'N/A';
+            const flagClasses = (flagElement.attr('class') || '').split(' ');
+            const countryCode = (flagClasses[1] || 'mod-un').split('-')[1];
+            const flagLink = `${BASE_URL}/img/icons/flags/16/${countryCode}.png`;
+
+            const getStat = (cellIndex) => $(playerCells[cellIndex]).find('.side.mod-both').text().trim();
             
             const player = {
                 name: playerName,
+                playerLink: BASE_URL + (nameAndAbbr.attr('href') || ''),
                 abbreviation: teamAbbreviation,
                 country: countryName,
+                flagLink: flagLink,
+                agentsPlayed: $(playerCells[1]).find('img').map((i, agentEl) => $(agentEl).attr('title')).get(),
+                stats: {
+                    Kills: getStat(4),
+                    Deaths: $(playerCells[5]).find('.side.mod-both').text().trim(),
+                    Assists: getStat(6),
+                    ACS: getStat(3),
+                    ADR: getStat(9),
+                }
             };
             team.players.push(player);
         });
@@ -105,7 +120,6 @@ async function getMatchDetails(url) {
 
     return matchData;
 }
-
 
 module.exports = {
     getUpcomingMatches,
