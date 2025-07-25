@@ -41,8 +41,10 @@ async function getMatchDetails(url) {
     if (!$) return null;
 
     const matchData = {};
-
     const header = $('.match-header');
+    
+    matchData.isLive = header.find('.match-header-vs-note.mod-live').text().trim().toUpperCase() === 'LIVE';
+
     const eventLink = header.find('a.match-header-event');
     const dateContainer = header.find('.match-header-date');
 
@@ -54,13 +56,12 @@ async function getMatchDetails(url) {
     
     matchData.date = dateContainer.find('.moment-tz-convert').first().text().trim();
     matchData.hour = dateContainer.find('.moment-tz-convert').last().text().trim();
-    matchData.patch = dateContainer.find('div > div[style="font-style: italic;"]').text().trim().replace(/Patch\s*/, '');
     
-    const scoreContainer = header.find('.match-header-vs-score .js-spoiler').first();
-    const scoreWinner = scoreContainer.find('.match-header-vs-score-winner').text().trim();
-    const scoreLoser = scoreContainer.find('.match-header-vs-score-loser').text().trim();
-    if (scoreWinner && scoreLoser) {
-        matchData.score = `${scoreWinner}:${scoreLoser}`;
+    const scoreElement = header.find('.match-header-vs-score .js-spoiler').first();
+    const scoreText = scoreElement.find('span:not(.match-header-vs-score-colon)').map((i, el) => $(el).text().trim()).get();
+    
+    if (scoreText.length === 2 && scoreText.every(s => /^\d+$/.test(s))) {
+        matchData.score = `${scoreText[0]} - ${scoreText[1]}`;
     } else {
         matchData.score = 'vs';
     }
@@ -69,15 +70,7 @@ async function getMatchDetails(url) {
     const team2Name = header.find('.wf-title-med').last().text().trim();
     matchData.team1 = { name: team1Name, logo: 'https:' + (header.find('a.match-header-link').first().find('img').attr('src') || '') };
     matchData.team2 = { name: team2Name, logo: 'https:' + (header.find('a.match-header-link').last().find('img').attr('src') || '') };
-    matchData.streamLinks = $('.match-streams-btn[href]').map((i, el) => $(el).attr('href')).get();
     
-    const banPickNote = $('.match-header-note').text().trim();
-    matchData.bans = banPickNote.split(';').map(ban => ban.trim()).filter(Boolean);
-
-    matchData.maps = $('.vm-stats-gamesnav-item:not(.mod-all):not(.mod-disabled)')
-        .map((i, el) => $(el).text().trim().replace(/^\d+\s*/, ''))
-        .get();
-
     const statsContainer = $('.vm-stats-game[data-game-id="all"]');
     [matchData.team1, matchData.team2].forEach((team, index) => {
         team.players = [];
@@ -93,38 +86,26 @@ async function getMatchDetails(url) {
 
             const flagElement = playerInfoCell.find('i.flag');
             const countryName = flagElement.attr('title') || 'N/A';
-            const flagClasses = (flagElement.attr('class') || '').split(' ');
-            const countryCode = (flagClasses[1] || 'mod-un').split('-')[1];
-            const flagLink = `${BASE_URL}/img/icons/flags/16/${countryCode}.png`;
-
-            const getStat = (cellIndex) => $(playerCells[cellIndex]).find('.side.mod-both').text().trim();
             
             const player = {
                 name: playerName,
-                playerLink: BASE_URL + (nameAndAbbr.attr('href') || ''),
                 abbreviation: teamAbbreviation,
                 country: countryName,
-                flagLink: flagLink,
-                agentsPlayed: $(playerCells[1]).find('img').map((i, agentEl) => $(agentEl).attr('title')).get(),
-                stats: {
-                    rating2_0: getStat(2), ACS: getStat(3), Kills: getStat(4),
-                    Deaths: $(playerCells[5]).find('.side.mod-both').text().trim(),
-                    Assists: getStat(6), plusminus: getStat(7), KAST: getStat(8), ADR: getStat(9),
-                    HSprocent: getStat(10), FK: getStat(11), FD: getStat(12), plusminus_fk_fd: getStat(13)
-                }
             };
             team.players.push(player);
         });
 
-        if (team.players.length > 0) {
+        if (team.players.length > 0 && team.players[0].abbreviation) {
             team.abbreviation = team.players[0].abbreviation;
         } else {
-            team.abbreviation = team.name.substring(0, 3).toUpperCase();
+            const teamNameContainer = header.find('.match-header-link-name').eq(index);
+            team.abbreviation = teamNameContainer.find('div[style*="font-size: 12px"]').text().replace(/[()]/g, '').trim() || team.name.substring(0, 3).toUpperCase();
         }
     });
 
     return matchData;
 }
+
 
 module.exports = {
     getUpcomingMatches,

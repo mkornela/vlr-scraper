@@ -44,30 +44,6 @@ function convertToPolishDateTime(dateString, timeString) {
     }
 }
 
-app.get('/api/upcoming', async (req, res) => {
-    try {
-        const matches = await vlr.getUpcomingMatches();
-        res.json(matches);
-    } catch (error) {
-        res.status(500).json({ error: 'Nie udało się pobrać danych o nadchodzących meczach.' });
-    }
-});
-
-app.get('/api/match/:id/:slug', async (req, res) => {
-    const { id, slug } = req.params;
-    const matchUrl = `https://www.vlr.gg/${id}/${slug}`;
-    
-    try {
-        const details = await vlr.getMatchDetails(matchUrl);
-        if (!details) {
-            return res.status(404).json({ error: 'Nie znaleziono meczu.' });
-        }
-        res.json(details);
-    } catch (error) {
-        res.status(500).json({ error: `Nie udało się pobrać danych dla meczu: ${slug}` });
-    }
-});
-
 app.get('/api/display', async (req, res) => {
     try {
         const { event, count, displayPlayersFrom } = req.query;
@@ -92,13 +68,12 @@ app.get('/api/display', async (req, res) => {
         const detailedMatches = await Promise.all(detailPromises);
         
         let lastDate = null;
-        const chatResponseParts = detailedMatches.map((details, index) => {
-            const matchInfo = filteredMatches[index];
+        const chatResponseParts = detailedMatches.map((details) => {
             let output = '';
 
             const getTeamDisplay = (team) => {
                 let display = team.abbreviation;
-                if (displayPlayersFrom) {
+                if (displayPlayersFrom && team.players) {
                     const players = team.players
                         .filter(p => p.country.toLowerCase() === displayPlayersFrom.toLowerCase())
                         .map(p => p.name);
@@ -114,13 +89,19 @@ app.get('/api/display', async (req, res) => {
             
             const team1Display = getTeamDisplay(details.team1);
             const team2Display = getTeamDisplay(details.team2);
-
-            if (matchInfo.time.toUpperCase() === 'LIVE') {
-                output = `[LIVE] ${team1Display} ${details.score} ${team2Display}`;
+            
+            const dateTime = convertToPolishDateTime(details.date, details.hour);
+            
+            if (details.isLive) {
+                const teams = `${team1Display} ${details.score} ${team2Display}`;
+                if (dateTime.date !== lastDate) {
+                    output = `${dateTime.date} | [LIVE] ${teams}`;
+                    lastDate = dateTime.date;
+                } else {
+                    output = `[LIVE] ${teams}`;
+                }
             } else {
-                const dateTime = convertToPolishDateTime(details.date, details.hour);
                 const teams = `${team1Display} vs ${team2Display}`;
-
                 if (dateTime) {
                     if (dateTime.date !== lastDate) {
                         output = `${dateTime.date} | ${dateTime.time} ${teams}`;
@@ -142,6 +123,30 @@ app.get('/api/display', async (req, res) => {
     } catch (error) {
         console.error('Błąd w /api/display:', error);
         res.status(500).send('Wystąpił wewnętrzny błąd serwera.');
+    }
+});
+
+app.get('/api/upcoming', async (req, res) => {
+    try {
+        const matches = await vlr.getUpcomingMatches();
+        res.json(matches);
+    } catch (error) {
+        res.status(500).json({ error: 'Nie udało się pobrać danych o nadchodzących meczach.' });
+    }
+});
+
+app.get('/api/match/:id/:slug', async (req, res) => {
+    const { id, slug } = req.params;
+    const matchUrl = `https://www.vlr.gg/${id}/${slug}`;
+    
+    try {
+        const details = await vlr.getMatchDetails(matchUrl);
+        if (!details) {
+            return res.status(404).json({ error: 'Nie znaleziono meczu.' });
+        }
+        res.json(details);
+    } catch (error) {
+        res.status(500).json({ error: `Nie udało się pobrać danych dla meczu: ${slug}` });
     }
 });
 
