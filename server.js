@@ -125,7 +125,7 @@ app.get('/api/display', async (req, res) => {
 
     } catch (error) {
         console.error('Błąd w /api/display:', error);
-        res.status(500).send('Wystąpił wewnętrzny błąd serwera.');
+        res.status(200).send('Nie znaleziono meczów na podany event, lub wystąpił wewnętrzny błąd serwera.');
     }
 });
 
